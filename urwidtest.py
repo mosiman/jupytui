@@ -1,5 +1,6 @@
 import urwid 
 
+import json
 
 def show_or_exit(key):
     if key in ('q', 'Q'):
@@ -55,7 +56,7 @@ class NbkCellWalker(urwid.ListWalker):
 
 
 
-body = [
+body0 = [
     urwid.LineBox(urwid.Edit("sup1", multiline=True)),
     urwid.LineBox(urwid.Edit("sup1", multiline=True)),
     urwid.LineBox(urwid.Edit("sup1", multiline=True)),
@@ -84,8 +85,18 @@ def add_editbox(key):
 
 NbkCellList = urwid.ListBox(NbkCellWalker())
 
-simpleLW = urwid.SimpleFocusListWalker(body)
+simpleLW = urwid.SimpleFocusListWalker([])
 testlistbox = urwid.ListBox(simpleLW)
+
+# read the json file 
+with open('Transformation2D.ipynb', 'r') as f:
+    ipynb = json.load(f)
+
+cells = ipynb["cells"][0:5]
+
+for cell in cells:
+    src = ''.join(cell["source"])
+    simpleLW.append(urwid.LineBox(urwid.Edit(src, multiline=True)))
 
 
 loop = urwid.MainLoop(testlistbox, unhandled_input = add_editbox)
