@@ -23,10 +23,14 @@ palette = [
 
 class NbkCellWalker(urwid.ListWalker):
     def __init__(self):
-        self.focus = (0, 1)
+        self.focus = (0,1)
+        self.cells = []
 
     def _get_at_pos(self, pos):
-        return urwid.LineBox(urwid.Edit(f"pos {pos}", multiline=True)), pos
+        if pos[1] == 1 and len(self.cells) == 0:
+            return urwid.LineBox(urwid.Text("fuck")), pos
+        else:
+            return self.cells[pos], pos
 
     def get_focus(self):
         return self._get_at_pos(self.focus)
@@ -37,12 +41,15 @@ class NbkCellWalker(urwid.ListWalker):
 
     def get_next(self, start_from):
         a,b = start_from 
-        focus = a, b+1
+        focus = a,b+1
         return self._get_at_pos(focus)
 
     def get_prev(self, start_from):
         a,b = start_from 
-        focus = a, b-1
+        if b == 1:
+            focus = start_from
+        else:
+            focus = a,b-1
         return self._get_at_pos(focus)
     
 
@@ -69,12 +76,18 @@ body = [
 def add_editbox(key):
     if key in ('q', 'Q'):
         # raise urwid.ExitMainLoop()
-        body.append(urwid.LineBox(urwid.Text("sup2")))
-
+        simpleLW.append(urwid.LineBox(urwid.Text("sup2")))
     return True
 
 
 # loop = urwid.MainLoop(urwid.ListBox(urwid.SimpleFocusListWalker(body)), unhandled_input = add_editbox)
-loop = urwid.MainLoop(urwid.ListBox(NbkCellWalker()))
+
+NbkCellList = urwid.ListBox(NbkCellWalker())
+
+simpleLW = urwid.SimpleFocusListWalker(body)
+testlistbox = urwid.ListBox(simpleLW)
+
+
+loop = urwid.MainLoop(testlistbox, unhandled_input = add_editbox)
 loop.run()
 
