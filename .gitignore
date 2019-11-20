@@ -3,3 +3,4 @@ urwid/
 *.ipynb
 latexshit/
 *.log
+kernelclient/

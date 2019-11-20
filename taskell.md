@@ -18,13 +18,6 @@
 
 ## Doing
 
-- MILESTONE 1: Import and render jupyter notebook
-    > What does this involve? note: no images for now.
-    * [x] Figure out how to make scrollable listbox
-    * [x] how to parse ipynb
-    * [x] classes for different cells
-    * [x] Basic navigation
-    * [ ] run numberings
 
 ## Done
 
@@ -47,3 +40,10 @@
     * [x] VI like modes: 'Normal', 'Insert'
     * [x] vim-like footer with mode
     * [x] coloured 'focus' 
+- MILESTONE 1: Import and render jupyter notebook
+    > What does this involve? note: no images for now.
+    * [x] Figure out how to make scrollable listbox
+    * [x] how to parse ipynb
+    * [x] classes for different cells
+    * [x] Basic navigation
+    * [x] run numberings
