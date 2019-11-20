@@ -28,17 +28,9 @@ palette = [
         ('banner', 'black', 'light gray'),
         ('streak', 'black', 'dark red'),
         ('bg', 'black', 'dark blue'),
-        ('cellFocus', 'light green', '')
+        ('cellFocus', 'light green', ''),
+        ('foot', 'yellow', 'dark gray')
         ]
-
-# txt = urwid.Edit(('banner', "Hello world"), multiline=True)
-# map1 = urwid.AttrMap(txt, 'streak')
-# boxthing = urwid.LineBox(map1)
-# fill = urwid.Filler(boxthing)
-# map2 = urwid.AttrMap(fill, 'bg')
-# loop = urwid.MainLoop(map2, palette) 
-# loop.run()
-
 
 class NbkCellLineBox(urwid.LineBox):
 
@@ -183,8 +175,7 @@ class NbkCellLineBox(urwid.LineBox):
         self.__init__(self._get_original_widget(), title = self.title_widget.text,
                         border_attr='cellFocus')
 
-
-class ModelNavListWalker(MonitoredList, ListWalker):
+class NbkCellWalker(MonitoredList, ListWalker):
     def __init__(self, contents):
         """
         contents -- list to copy into this object
@@ -235,12 +226,16 @@ class ModelNavListWalker(MonitoredList, ListWalker):
             raise IndexError("No widget at position %s" % (position,))
 
         self.prev_focus = self.focus
+
+        # make the editbox not selectable (for nav mode), but in focus. 
+        # self.contents[self.focus].cell.base_widget.set_selectable(False)
         self.focus = position
         self._modified()
 
         # try to make the selected box more obvious
         self.contents[self.prev_focus].set_nofocus_attr()
         self.contents[self.focus].set_focus_attr()
+
 
     def next_position(self, position):
         """
@@ -265,12 +260,72 @@ class ModelNavListWalker(MonitoredList, ListWalker):
         if reverse:
             return range(len(self) - 1, -1, -1)
         return range(len(self))
+    def selectable(self):
+        return True
+    def keypress(self, size, key):
+        celltext = self.contents[0].cell.original_widget.get_text()
+        key = super().keypress(size, key)
+        print(key)
+        self.contents[0].cell.original_widget.insert_text('abcdef')
+
+class NbkListBox(urwid.ListBox):
+    def __init__(self, body, footer=None):
+        """
+        A derivative of `urwid.ListBox` that filters keypresses for managing modal state.
+
+        keyword arguments:
+            :param footer: the footer widget (default: None)
+        """
+        super().__init__(body)
+        self.mode = 'NAV'
+        self.footer = footer
+        logging.debug(f"footer: {footer}")
+
+    def keypress(self, size, key):
+        if self.mode == 'NAV':
+            if key in ['i','a']:
+                self.mode='INSERT'
+                self.footer.base_widget.set_text('Vi (INSERT)')
+            elif key in ['j', 'down']:
+                nextfocus = self.focus_position + 1
+                if nextfocus < len(self._body):
+                    self.set_focus(nextfocus, coming_from='above')
+            elif key in ['k', 'up']:
+                nextfocus = self.focus_position - 1
+                if nextfocus >= 0:
+                    self.set_focus(nextfocus, coming_from='below')
+
+        elif self.mode == 'INSERT':
+            logging.debug(f"insert mode key: {key}")
+            if key in ['esc', 'ctrl [']:
+                logging.debug(f"detected esc")
+                self.mode = 'NAV'
+                self.footer.base_widget.set_text('Vi (NAV)')
+            else:
+                thing = super().keypress(size, key)
+                if thing:
+                    return thing
 
 def add_editbox(key):
     if key in ('q', 'Q'):
         # raise urwid.ExitMainLoop()
-        modalLW.append(urwid.LineBox(urwid.Text("sup2")))
+        nbkLW.append(urwid.LineBox(urwid.Text("sup2")))
     return True
+
+class NbkEditBox(urwid.Edit):
+    """
+    Need to have the ability to switch between selectable and not selectable.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._selectable = True
+
+    def selectable(self):
+        return self._selectable
+    def set_selectable(self,b):
+        self._selectable = b
+
+
 
 def handleCodeOutput(outputs):
     outstr = ""
@@ -290,22 +345,31 @@ def handleCodeOutput(outputs):
         outstr += '\n'
     return outstr
 
-
 def chooseNbkCell(cell):
+    
+    if 'execution_count' in cell:
+        runNum = cell['execution_count']
+    else:
+        runNum = ''
+
+
     if cell["cell_type"] == 'markdown':
-        return NbkCellMkdn(''.join(cell["source"]))
+        return NbkCellMkdn(''.join(cell["source"]), runNum=runNum)
     elif cell["cell_type"] == 'code':
         # process the output 
         out = handleCodeOutput(cell["outputs"])
-        return NbkCellCode(''.join(cell["source"]), out)
+        return NbkCellCode(''.join(cell["source"]), out, runNum=runNum)
     elif cell["cell_type"] == 'raw':
-        return NbkCellRaw(''.join(cell["source"]))
-
+        return NbkCellRaw(''.join(cell["source"]), runNum=runNum)
 
 class NbkCell(urwid.WidgetWrap):
-    def __init__(self, src):
+    def __init__(self, src, runNum=''):
         #self.cell = urwid.LineBox(urwid.Edit(src, multiline=True))
-        self.cell = NbkCellLineBox(urwid.Edit(src, multiline=True))
+        if runNum != '':
+            title= f'In [{runNum}]'
+        else:
+            title = ''
+        self.cell = NbkCellLineBox(NbkEditBox(src, multiline=True), title=title)
         urwid.WidgetWrap.__init__(self, self.cell)
     def set_title(self, titletext):
         self.cell.set_title(titletext)
@@ -317,30 +381,31 @@ class NbkCell(urwid.WidgetWrap):
         self.cell.rerender()
 
 class NbkCellRaw(NbkCell):
-    def __init__(self, src):
+    def __init__(self, src, runNum=''):
         super().__init__(src)
 
 # Eventually, need to have modes for 'in focus' or 'not in focus' / 
 #   'dont render images', 'render images' for using pixcat to display
 #   markdown images
 class NbkCellMkdn(NbkCell):
-    def __init__(self, src):
+    def __init__(self, src, runNum=''):
         super().__init__(src)
     
 class NbkCellCode(NbkCell):
-    def __init__(self, src, out):
+    def __init__(self, src, out, runNum=''):
         super().__init__(src)
         self.outCell = urwid.Text(out)
         # put them in a pile 
         stacked = urwid.Pile([self.cell, self.outCell])
         urwid.WidgetWrap.__init__(self, stacked) 
 
-# loop = urwid.MainLoop(urwid.ListBox(urwid.SimpleFocusListWalker(body)), unhandled_input = add_editbox)
-
 simpleLW = urwid.SimpleFocusListWalker([])
 
-modalLW = ModelNavListWalker([])
-testlistbox = urwid.ListBox(modalLW)
+nbkLW = NbkCellWalker([])
+#nbkListBox = urwid.ListBox(nbkLW)
+modalFooter = urwid.AttrMap(urwid.Text('Vi (NAV)'), 'foot')
+nbkListBox = NbkListBox(nbkLW, footer=modalFooter)
+view = urwid.Frame(nbkListBox, footer=modalFooter)
 
 # Have a mode manageer
 # maintain current mode state
@@ -352,14 +417,11 @@ with open('census.ipynb', 'r') as f:
 
 cells = ipynb["cells"]
 
-#modalLW.append(urwid.AttrMap(urwid.LineBox(urwid.Text('asdfasdf')), 'cellFocus'))
-#modalLW.append(NbkCellLineBox(urwid.Text('asdfasdf'), title='foobar', title_align='left', border_attr='cellFocus'))
-
 for cell in cells:
-    modalLW.append(chooseNbkCell(cell))
+    nbkLW.append(chooseNbkCell(cell))
 
 
 
-loop = urwid.MainLoop(testlistbox, palette, unhandled_input = show_or_exit)
+loop = urwid.MainLoop(view, palette, unhandled_input = show_or_exit)
 loop.run()
 
