@@ -7,17 +7,26 @@
 - Split out into different files
 - Use prompt toolkit / ptpython for editable cells
 - When first opening notebook, first cell is not in focus (not coloured green)
+- Vi-mode: buffers for `d`, `y` and other shit
+- Render markdown with pixcat for latex, images
+    > Use pixcat to render images. Will likely involve a rehaul of lots of things. 
+- Some display data, turn into button and opens in `imv`
+- Integrate with nbformat's ipynb library for easy saving
+
+## Doing
+
+- Experiment with the jupyter_client api
+    > These are notes, not sub tasks.
+    * [x] Threading > processing for zmq listeners, because they don't *really* need their own cpu/mem space (they're just listening)
+    * [x] Use flags to stop listeners in threads
+    * [x] Multiple listeners seems to share the same kernel client just fine
 - Vi-mode: `:` for commands
+    > priority for this should be bumped because it allows for easy testing of shit, especially threaded functions and shit Last thing i'm doing: configuring keypress for frame
     * [ ] open
     * [ ] write
     * [ ] terminal
     * [ ] shell for kernel
-- Vi-mode: buffers for `d`, `y` and other shit
-- Render markdown with pixcat for latex, images
-    > Use pixcat to render images. Will likely involve a rehaul of lots of things. 
-
-## Doing
-
+    * [x] Just be able to type shit in
 
 ## Done
 

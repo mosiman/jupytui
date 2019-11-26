@@ -61,23 +61,24 @@ class NbkEditBox(urwid.Edit):
         self._selectable = b
 
 class NbkListBox(urwid.ListBox):
-    def __init__(self, body, footer=None):
+    def __init__(self, body, modeman):
         """
         A derivative of `urwid.ListBox` that filters keypresses for managing modal state.
-
-        keyword arguments:
-            :param footer: the footer widget (default: None)
         """
         super().__init__(body)
-        self.mode = 'NAV'
-        self.footer = footer
-        logging.debug(f"footer: {footer}")
+        self.modeman = modeman
+
+    # this seems smelly...
+    def set_parentframe(self, frame):
+        self.parentframe = frame
 
     def keypress(self, size, key):
-        if self.mode == 'NAV':
+        logging.debug(f"keypress, nbklistbox with key {key}")
+        if self.modeman.mode == 'NAV':
             if key in ['i','a']:
-                self.mode='INSERT'
-                self.footer.base_widget.set_text('Vi (INSERT)')
+                #self.modeman.switch_mode('CELL')
+                urwid.emit_signal(self, "modeChange", "CELL")
+                #self.footer.base_widget.set_caption('Vi (INSERT)')
             elif key in ['j', 'down']:
                 nextfocus = self.focus_position + 1
                 if nextfocus < len(self._body):
@@ -86,17 +87,22 @@ class NbkListBox(urwid.ListBox):
                 nextfocus = self.focus_position - 1
                 if nextfocus >= 0:
                     self.set_focus(nextfocus, coming_from='below')
+            elif key in [':']:
+                urwid.emit_signal(self, "modeChange", "COMMAND")
 
-        elif self.mode == 'INSERT':
-            logging.debug(f"insert mode key: {key}")
+        elif self.modeman.mode == 'CELL':
+            logging.debug(f"cell mode key: {key}")
             if key in ['esc', 'ctrl [']:
                 logging.debug(f"detected esc")
-                self.mode = 'NAV'
-                self.footer.base_widget.set_text('Vi (NAV)')
+                urwid.emit_signal(self, "modeChange", "NAV")
             else:
                 thing = super().keypress(size, key)
                 if thing:
                     return thing
+        else:
+            logging.warn(f"Uncaught key in NbkListBox key: {key}, mode: {self.modeman.mode}")
+
+
 
 class NbkCellWalker(MonitoredList, ListWalker):
     def __init__(self, contents):
