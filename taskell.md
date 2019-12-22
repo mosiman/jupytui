@@ -24,9 +24,9 @@
     > priority for this should be bumped because it allows for easy testing of shit, especially threaded functions and shit Last thing i'm doing: configuring keypress for frame
     * [ ] open
     * [ ] write
-    * [ ] terminal
-    * [ ] shell for kernel
     * [x] Just be able to type shit in
+    * [x] Popup for feedback, etc
+    * [x] exit
 
 ## Done
 

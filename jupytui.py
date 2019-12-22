@@ -1,4 +1,5 @@
 import urwid 
+import os
 import logging
 # from pixcat import Image
 
@@ -90,7 +91,8 @@ class StatusBar(urwid.Edit):
 
         if key == 'enter':
             logging.debug(f"Command to be sent: {self.edit_text}")
-            urwid.emit_signal(self, "modeChange", "NAV")
+            # urwid.emit_signal(self, "modeChange", "NAV")
+            urwid.emit_signal(self, "commandSend", self.edit_text.split(':')[1])
         elif key == 'backspace':
             if self.edit_pos == 1:
                 urwid.emit_signal(self, "modeChange", "NAV")
@@ -173,10 +175,84 @@ def modalSignalCatcher():
     if modeman.mode == 'NAV':
         modalFooter.base_widget.set_caption('Vi (foobar)')
 
+def commandCatcher(cmd):
+    """
+    A test function to see how things work
+    """
+
+    logging.debug(f"command catcher: {cmd}")
+
+    def returnToNav(arg):
+        logging.debug(f"buttonOnClick arg: {arg}")
+        loop.widget = view
+        loop.widget.changeMode('NAV')
+
+    # 'single word' functions
+    if cmd in ['q', 'exit']:
+        raise urwid.ExitMainLoop
+    elif cmd in ['w']:
+        okayBox = urwid.LineBox(urwid.Pile([urwid.Text("A placeholder for the save function"), urwid.Button('Okay', on_press=returnToNav)]))
+        loop.widget = urwid.Overlay(okayBox, view, align='center', width=('relative', 80), valign='middle', height='pack')
+        return
+    elif cmd in ['h', 'help']:
+        okayBox = urwid.LineBox(urwid.Pile([urwid.Text("A placeholder for the help function"), urwid.Button('Okay', on_press=returnToNav)]))
+        loop.widget = urwid.Overlay(okayBox, view, align='center', width=('relative', 80), valign='middle', height='pack')
+    elif cmd in ['delete']:
+        logging.debug(f"delete")
+        loop.widget.body.body.pop(loop.widget.body.body.focus)
+        loop.widget.changeMode('NAV')
+        return
+    elif cmd in ['deleteall']:
+        loop.widget.body.body = []
+        loop.widget.changeMode('NAV')
+        return
+    elif cmd in ['addtest']:
+        focus = loop.widget.body.body.focus 
+        curCell = loop.widget.body.body[focus]
+        # insert same thing 
+        loop.widget.body.body.insert(focus, curCell)
+        loop.widget.changeMode('NAV')
+        loop.screen.clear()
+        return
+
+
+    # 'two word' functions
+    fname, arg = cmd.split(' ')
+
+    if fname in ['o', 'open']:
+        # try to find the file 
+        fileExists = os.path.exists(arg)
+        if fileExists:
+            # read file, do the thing
+            #nbkListBox.body = NbkCellWalker([])
+            loop.widget.body.body = []
+            with open(arg, 'r') as f:
+                ipynb = json.load(f)
+            
+            cells = ipynb["cells"]
+
+            for cell in cells:
+                #nbkListBox.body.append(chooseNbkCell(cell))
+                loop.widget.body.body.append(chooseNbkCell(cell))
+            # view = ModalFrame(nbkListBox, modeman, footer=modalFooter)
+            # loop.widget = view
+            view.changeMode('NAV')
+
+        else:
+            okayBox = urwid.LineBox(urwid.Pile([urwid.Text("File not found!"), urwid.Button('Okay', on_press=returnToNav)]))
+            loop.widget = urwid.Overlay(okayBox, view, align='center', width=('relative', 80), valign='middle', height='pack')
+
+        return
+
+    
+    
+
+    okayBox = urwid.LineBox(urwid.Pile([urwid.Text(f"uncaught command {cmd}"), urwid.Button('Okay', on_press=returnToNav)]))
+    loop.widget = urwid.Overlay(okayBox, view, align='center', width=('relative', 80), valign='middle', height='pack')
 
 # register signals and stuff 
 urwid.register_signal(NbkListBox, ["nbklist insert mode", "modeChange"])
-urwid.register_signal(StatusBar, ["modeChange"])
+urwid.register_signal(StatusBar, ["modeChange", "commandSend"])
 
 
 modeman = ModalManager()
@@ -188,56 +264,22 @@ nbkListBox = NbkListBox(nbkLW, modeman)
 #view = urwid.Frame(nbkListBox, footer=modalFooter)
 view = ModalFrame(nbkListBox, modeman, footer=modalFooter)
 
-# seems smelly... 
-# nbkListBox.set_parentframe(view)
-
-
 urwid.connect_signal(nbkListBox, "modeChange", view.changeMode)
 urwid.connect_signal(statusBar, "modeChange", view.changeMode)
+urwid.connect_signal(statusBar, "commandSend", commandCatcher)
 
-# The coupling is way too tight between frame, listbox, footer 
-#
-# frame and listbox depend on each other
-# frame needs listbox as the body 
-# listbox needs to reference frame to change focus for modes. 
-
-# possible solution: Tiered keypress filtering 
-#   frame takes forwards all keypresses, except for `:`, `enter` which it uses 
-#   to switch focus between listbox, footer 
-# bad bads:
-#   - If the nbklist has its own modal manager, then we'll have two copies of the state. 
-#     messy. 
-#       - could have a 'modal manager' that keeps track of what mode we're in. Then 
-#         footer, frame, and listbox would all take modal manager as an input and ask it for
-#         the current mode. 
-#       - We could also use modal manager, and have the manager monolithically manage 
-#         keypresses for frame, listbox, and footer. 
-
-
-# for now, let's go with frame managing the keypresses at the top level, trickling down
-# the filtered input as needed. Everyone checks with the modal manager for the current mode
-# on what to do. 
-
-
-
-
-
-
-# Have a mode manageer
-# maintain current mode state
-# if change mode to 'normal', send signal so that all the edit boxes are not selectable, but the listboxes are (for 'scrolling' through the cells)
-
-# read the json file 
 with open('census.ipynb', 'r') as f:
     ipynb = json.load(f)
 
 cells = ipynb["cells"]
 
+testcell = chooseNbkCell(cells[0])
+
 for cell in cells:
     nbkLW.append(chooseNbkCell(cell))
 
 
-
 loop = urwid.MainLoop(view, palette, unhandled_input = show_or_exit)
+# sketchy shit to put the select attr when loading up.
+view.body.set_focus(view.body.focus_position)
 loop.run()
-

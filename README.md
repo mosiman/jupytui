@@ -1,3 +1,9 @@
+## branch: 'rework'
+
+The project is getting messy, there are too many parts and I'm getting confused. A lot of it is because I didn't know about some previously implemented functionality, etc. Need to try to rework this so that it's 'scalable' in terms of being able to work on it in the future. 
+
+I should make better use of signals, and try to compartmentalize functionality. 
+
 # Jupytui
 
 A terminal client for Jupyter notebooks. 

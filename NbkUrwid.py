@@ -68,12 +68,10 @@ class NbkListBox(urwid.ListBox):
         super().__init__(body)
         self.modeman = modeman
 
-    # this seems smelly...
-    def set_parentframe(self, frame):
-        self.parentframe = frame
-
     def keypress(self, size, key):
         logging.debug(f"keypress, nbklistbox with key {key}")
+        logging.debug(f"nbkListBox pos: {self.body.focus}")
+        logging.debug(f"modeman mode: {self.modeman.mode}")
         if self.modeman.mode == 'NAV':
             if key in ['i','a']:
                 #self.modeman.switch_mode('CELL')
@@ -104,7 +102,7 @@ class NbkListBox(urwid.ListBox):
 
 
 
-class NbkCellWalker(MonitoredList, ListWalker):
+class NbkCellWalker(MonitoredFocusList, ListWalker):
     def __init__(self, contents):
         """
         contents -- list to copy into this object
