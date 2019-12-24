@@ -9,7 +9,7 @@ import urwid
 
 import nbformat
 
-from rework_widgets import Cell
+from rework_widgets import Cell, NotebookWalker, CloneWalker, NotebookWalkerV1
 
 palette = [
         ('banner', 'black', 'light gray'),
@@ -53,10 +53,19 @@ def debug_input(key):
 
 simpleLW = urwid.SimpleFocusListWalker([])
 
+cloneLW = CloneWalker([])
+
 for cell in nbk.cells:
     simpleLW.append(Cell(cell))
+    #cloneLW.append(Cell(cell))
 
-listcell = urwid.ListBox(simpleLW)
+nbkWalker = NotebookWalker(nbk)
+#nbkWalker = NotebookWalkerV1(nbk)
+
+# listcell = urwid.ListBox(simpleLW)
+listcell = urwid.ListBox(nbkWalker)
+
+#listcell = urwid.ListBox(cloneLW)
 
 loop = urwid.MainLoop(listcell, palette, unhandled_input=debug_input)
 
