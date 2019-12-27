@@ -9,7 +9,7 @@ import urwid
 
 import nbformat
 
-from rework_widgets import Cell, NotebookWalker, CloneWalker, NotebookWalkerV1
+from rework_widgets import Cell, NotebookWalker, helpOverlay, overlayMessage, OverlayButton, TestPopupLauncher, PopUpDialog
 
 palette = [
         ('banner', 'black', 'light gray'),
@@ -25,48 +25,36 @@ palette = [
 
 nbk = nbformat.read('census.ipynb', nbformat.NO_CONVERT)
 
-# View (Listbox)
-#  |
-#  |-- Notebook Cell 1 (Pile)
-#  |    |
-#  |    |-- Notebook Source (Edit) [[Decorate: Linebox]]
-#  |    |
-#  |    |-- Notebook Output 1 (Text)
-#  |    |
-#  |    |-- Notebook Output ... (Text)
-#  |    |
-#  |    |-- Notebook Output n (Text)
-#  |
-#  |-- Notebook Cell 2 (Pile)
-#       |
-#       |-- Notebook Source (Edit) [[Decorate: Linebox]]
-#       |
-#       |-- Notebook Output 1 (Text)
-#       |
-#       |-- Notebook Output ... (Text)
-#       |
-#       |-- Notebook Output n (Text)
+####### SIGNALS #########
 
+
+def undoOverlayMessage():
+    loop.widget = loop.widget.bottom_w
 
 def debug_input(key):
     logging.debug(f"unhandled key: {key}")
+    if key == 'f1':
+        loop.widget = overlayMessage(helpOverlay, loop.widget)
+    if key == 'f2':
+        loop.widget.open_pop_up()
+    if key == 'f3':
+        logging.debug('f3 pressed')
+        pop_up = PopUpDialog("foobar!")
+        overlay = urwid.Overlay(pop_up, loop.widget, align='center', width=('relative', 80), valign='middle', height=('relative', 80))
+        loop.widget = overlay
+        urwid.connect_signal(pop_up, 'close',
+                lambda button: undoOverlayMessage())
 
-simpleLW = urwid.SimpleFocusListWalker([])
 
-cloneLW = CloneWalker([])
-
-for cell in nbk.cells:
-    simpleLW.append(Cell(cell))
-    #cloneLW.append(Cell(cell))
 
 nbkWalker = NotebookWalker(nbk)
-#nbkWalker = NotebookWalkerV1(nbk)
 
-# listcell = urwid.ListBox(simpleLW)
 listcell = urwid.ListBox(nbkWalker)
 
-#listcell = urwid.ListBox(cloneLW)
+footer = urwid.Text(" F1: Help || F2 (shift): Save (as) || F3: Open")
 
-loop = urwid.MainLoop(listcell, palette, unhandled_input=debug_input)
+frame = urwid.Frame(listcell, footer=footer)
+
+loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True)
 
 loop.run()
