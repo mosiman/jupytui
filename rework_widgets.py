@@ -4,6 +4,14 @@ import logging
 
 import urwid
 
+class SelectableEdit(urwid.Edit):
+    """
+    Extension of urwid.Edit, allowing to be selectable or not selectable.
+    """
+    def selectable(self):
+        return self._selectable
+
+
 class NotebookWalker(urwid.ListWalker):
 
     def __init__(self, nbk):
@@ -91,7 +99,7 @@ class Cell(urwid.WidgetWrap):
 
         # wrap edit box with attribute, so that attrmap(linebox) doesn't assign to edit box
         # TODO: this will change when I implement syntax highlighting
-        self.editbox = urwid.AttrMap(urwid.Edit(edit_text=self.source), 'regularText')
+        self.editbox = urwid.AttrMap(SelectableEdit(edit_text=self.source), 'regularText')
         # wrap linebox with attr, when focused give it cellFocus attribute
         srcWidget = urwid.AttrMap(urwid.LineBox(self.editbox), 'regularLineBox', focus_map='cellFocus')
         # TODO implement cell output later: need to hide html/img/etc types
@@ -110,18 +118,3 @@ class PopUpDialog(urwid.WidgetWrap):
         fill = urwid.Filler(pile)
         lb = urwid.LineBox(fill)
         self.__super.__init__(urwid.AttrWrap(lb, 'popbg'))
-
-class OverlayButton(urwid.Button):
-    def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
-
-helpOverlay = urwid.Text("""HELP:
-                            
-this is an overlay for help stuff
-help
-help
-help
-help
-helpooooooopppppp
-
-press any key to close this window""")
