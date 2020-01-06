@@ -9,7 +9,7 @@ import urwid
 
 import nbformat
 
-from rework_widgets import Cell, NotebookWalker, helpOverlay, overlayMessage, OverlayButton, TestPopupLauncher, PopUpDialog
+from rework_widgets import Cell, NotebookWalker, helpOverlay, OverlayButton, PopUpDialog
 
 palette = [
         ('banner', 'black', 'light gray'),
@@ -34,11 +34,7 @@ def undoOverlayMessage():
 def debug_input(key):
     logging.debug(f"unhandled key: {key}")
     if key == 'f1':
-        loop.widget = overlayMessage(helpOverlay, loop.widget)
-    if key == 'f2':
-        loop.widget.open_pop_up()
-    if key == 'f3':
-        logging.debug('f3 pressed')
+        logging.debug('f1 pressed')
         pop_up = PopUpDialog("foobar!")
         overlay = urwid.Overlay(pop_up, loop.widget, align='center', width=('relative', 80), valign='middle', height=('relative', 80))
         loop.widget = overlay
