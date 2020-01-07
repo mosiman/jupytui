@@ -1,8 +1,75 @@
-
+# TODO: refactor into misc, Widgets, States
 
 import logging
 
 import urwid
+
+class ButtonLabel(urwid.SelectableIcon):
+    '''
+    use Drunken Master's trick to move the cursor out of view
+    See the SO answer by Michael Palmer, https://stackoverflow.com/a/44682928
+    '''
+    def set_text(self, label):
+        '''
+        set_text is invoked by Button.set_label
+        '''
+        self.__super.set_text(label)
+        self._cursor_position = len(label) + 1
+
+
+class NiceButton(urwid.Button):
+    '''
+    - override __init__ to use our ButtonLabel instead of urwid.SelectableIcon
+
+    - make button_left and button_right plain strings and variable width -
+      any string, including an empty string, can be set and displayed
+
+    - otherwise, we leave Button behaviour unchanged
+
+    Courtesy of Michael Palmer, https://stackoverflow.com/a/44682928
+    '''
+    button_left = ""
+    button_right = ""
+
+    def __init__(self, label, on_press=None, user_data=None):
+        self._label = ButtonLabel("")
+        cols = urwid.Columns([
+            ('fixed', len(self.button_left), urwid.Text(self.button_left)),
+            self._label,
+            ('fixed', len(self.button_right), urwid.Text(self.button_right))],
+            dividechars=1)
+        super(urwid.Button, self).__init__(cols)
+
+        if on_press:
+            urwid.connect_signal(self, 'click', on_press, user_data)
+
+        self.set_label(label)
+
+
+
+def handleCodeOutput(outputs):
+    """
+    Takes the outputs of a cell, returns a list of appropriate widgets to be used in a Pile
+    """
+    outwidgets = []
+    for output in outputs:
+        if output["output_type"] == 'stream':
+            lines = output["text"].split('\n')
+            outwidgets.append(urwid.Text(output["text"]))
+        elif output["output_type"] == 'display_data':
+            widg = NiceButton('<< Some display data >>', on_press=None)
+            outwidgets.append(urwid.AttrMap(widg, 'regularText', 'cellFocus'))
+        elif output["output_type"] == 'execute_result':
+            data = output["data"]
+            for datatype in data.keys():
+                if datatype == "text/plain":
+                    outwidgets.append(urwid.Text(data['text/plain']))
+                else:
+                    widg = NiceButton(f'<< Some {datatype} >>', on_press=None)
+                    outwidgets.append(urwid.AttrMap(widg, 'regularText', 'cellFocus'))
+                outwidgets.append(urwid.Text(''))
+        outwidgets.append(urwid.Text(''))
+    return outwidgets
 
 class StateBase:
     def __init__(self, context):
@@ -15,6 +82,9 @@ class EditState(StateBase):
         super().__init__(context)
         SelectableEdit._selectable = True
         self.context.cmdbox.edit_text = "(EDIT)"
+        # If focus happens to be on a button, we need to force the focus to be on the source.
+        # TODO this kinda smells tbh, should be accessible more directly from StatefulFrame
+        self.context.listbox.focus._w.focus_position = 0
     def keypress(self, size, key):
         logging.debug(f'keypress caught by EditState: {key}')
         if key in ['esc']:
@@ -197,7 +267,10 @@ class Cell(urwid.WidgetWrap):
         # srcWidget = urwid.AttrMap(urwid.LineBox(self.editbox), 'regularLineBox', focus_map='cellFocus')
         # TODO implement cell output later: need to hide html/img/etc types
         # Add the cell outputs to pile
-        display_widget = urwid.Pile([srcWidget])
+
+        outwidgets = handleCodeOutput(cell["outputs"]) if "outputs" in cell.keys() else []
+
+        display_widget = urwid.Pile([srcWidget, *outwidgets])
 
         urwid.WidgetWrap.__init__(self, display_widget)
 
