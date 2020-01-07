@@ -1,8 +1,3 @@
-# Experiment 3: Set up the state pattern to handle keypresses.
-# Notes: The state pattern seems to make things so easy
-# Results: Success!
-
-
 import urwid
 
 # Monkeypatch: issue 386

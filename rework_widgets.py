@@ -185,11 +185,16 @@ class Cell(urwid.WidgetWrap):
         self.metadata = cell.metadata
         self.source = cell.source # source is not edited when editbox is, need explicit sync
 
-        # wrap edit box with attribute, so that attrmap(linebox) doesn't assign to edit box
+        if 'execution_count' in cell.keys():
+            srcTitleText = 'In [' + str(cell.execution_count) + ']'
+        else:
+            srcTitleText = ''
+
         # TODO: this will change when I implement syntax highlighting
         self.editbox = urwid.AttrMap(SelectableEdit(edit_text=self.source, allow_tab=True, multiline=True), 'regularText')
-        # wrap linebox with attr, when focused give it cellFocus attribute
-        srcWidget = urwid.AttrMap(urwid.LineBox(self.editbox), 'regularLineBox', focus_map='cellFocus')
+        lineBorder = urwid.LineBox(self.editbox, title=srcTitleText, title_attr='regularText', title_align='left')
+        srcWidget=urwid.AttrMap(lineBorder, 'regularLineBox', focus_map='cellFocus')
+        # srcWidget = urwid.AttrMap(urwid.LineBox(self.editbox), 'regularLineBox', focus_map='cellFocus')
         # TODO implement cell output later: need to hide html/img/etc types
         # Add the cell outputs to pile
         display_widget = urwid.Pile([srcWidget])
