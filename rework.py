@@ -1,3 +1,8 @@
+# Experiment 3: Set up the state pattern to handle keypresses.
+# Notes: The state pattern seems to make things so easy
+# Results: Success!
+
+
 import urwid
 
 # Monkeypatch: issue 386
@@ -6,14 +11,13 @@ import patch_issue_386
 urwid.ListBox = patch_issue_386.ListBox
 
 import nbformat
-from rework_widgets import Cell, NotebookWalker, PopUpDialog, SelectableEdit
+from rework_widgets import Cell, NotebookWalker, PopUpDialog, SelectableEdit, StatefulFrame
 
 import logging
 logging.basicConfig(filename='rework.log', filemode='a', format='%(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
 
 palette = [
-        ('banner', 'black', 'light gray'),
-        ('streak', 'black', 'dark red'),
+        ('fnamebox', 'black', 'white'),
         ('bg', 'black', 'dark blue'),
         ('cellFocus', 'light green', ''),
         ('foot', 'yellow', 'dark gray'),
@@ -22,7 +26,8 @@ palette = [
         ]
 
 # read a notebook
-nbk = nbformat.read('census.ipynb', nbformat.NO_CONVERT)
+fname = 'census.ipynb'
+nbk = nbformat.read(fname, nbformat.NO_CONVERT)
 
 ####### SIGNALS #########
 
@@ -50,13 +55,16 @@ def debug_input(key):
         SelectableEdit._selectable = True
 
 
-
 nbkWalker = NotebookWalker(nbk)
 listcell = urwid.ListBox(nbkWalker)
 
-footer = urwid.Text(" F1: Help || F2 (shift): Save (as) || F3: Open")
+cmdbox = urwid.Edit(edit_text="(NAV)")
+fnamebox = urwid.AttrMap(urwid.Text(fname), 'fnamebox')
+footer = urwid.Pile([fnamebox, cmdbox])
 
-frame = urwid.Frame(listcell, footer=footer)
+#frame = urwid.Frame(listcell, footer=footer)
+
+frame = StatefulFrame(listcell, footer=footer)
 
 loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True)
 
