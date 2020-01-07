@@ -5,3 +5,5 @@ latexshit/
 *.log
 kernelclient/
 teststuff/
+*.pyc
+__pycache__/
