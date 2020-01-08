@@ -1,4 +1,5 @@
 import urwid
+import logging
 
 def handleCodeOutput(outputs):
     """
@@ -71,9 +72,28 @@ class SelectableEdit(urwid.Edit):
     """
     def selectable(self):
         return self._selectable
+    # def keypress(self, size, key):
+    #     logging.debug(f'SelectableEdit caught keypress: {key}')
+    #     #logging.debug(f'am I selectable? {self.selectable()}')
+    #     super().keypress(size, key)
 
 
-class NotebookWalker(urwid.ListWalker):
+class NotebookWalkerV2(urwid.SimpleFocusListWalker):
+    def __init__(self, nbk):
+        self.nbk = nbk
+        cells = list(map(Cell, self.nbk.cells))
+
+        super().__init__(cells)
+
+    
+    def restore_cells(self):
+        logging.debug(f'vars: {vars(urwid.SimpleFocusListWalker)}')
+        self[3] = Cell(self.nbk.cells[0])
+
+    def delete_all_cells(self):
+        pass
+
+class NotebookWalker(urwid.MonitoredList, urwid.ListWalker):
     def __init__(self, nbk):
         self.nbk = nbk
         # Originally, I wanted to have walker generate Cell objects on the fly 
@@ -91,6 +111,26 @@ class NotebookWalker(urwid.ListWalker):
         # TODO: Have NotebookWalker subclass SimpleListWalker (or SimpleFocusListWalker)
         #       It will be more easily maintainable, and easier to read.
         #       Should just be the subclass, plus a notebook object and some sync functions.
+        self.cells = list(map(Cell, self.nbk.cells))
+        urwid.MonitoredList.__init__(self, self.cells)
+        self.focus = 0
+
+    def restore_cells(self):
+        #self.cells[3] = Cell(self.nbk.cells[0])
+        self.cells[3] = urwid.Edit(edit_text="fasdf")
+        self._modified()
+
+    def delete_all_cells(self):
+        pass
+        # logging.debug("deleteing cells")
+        # logging.debug(f'numcells: {len(self.cells)}')
+        # self.cellbackup = self.cells
+        # for i in range(len(self.cells) - 1):
+        #     self.cells.pop()
+        # self.focus = 0
+
+    def change_notebook(self, nbk):
+        self.nbk = nbk
         self.cells = list(map(Cell, self.nbk.cells))
         self.focus = 0
 
@@ -139,7 +179,38 @@ class NotebookWalker(urwid.ListWalker):
             return range(len(self) - 1, -1, -1)
         return range(len(self))
 
-class Cell(urwid.WidgetWrap):
+class Cell(urwid.Pile):
+    """
+    A cell is a Pile with a constructor taking a `nbformat.notebooknode.NotebookNode`
+    It also stores some metadata associated with the NotebookNode.
+    It calls the Pile constructor once widgets have been constructed in Cell.__init__
+    """
+
+    def __init__(self, cell):
+        self.cell_type = cell.cell_type
+        self.metadata = cell.metadata
+        self.source = cell.source # source is not edited when editbox is, need explicit sync
+
+        if 'execution_count' in cell.keys():
+            srcTitleText = 'In [' + str(cell.execution_count) + ']'
+        else:
+            srcTitleText = ''
+
+        # TODO: this will change when I implement syntax highlighting
+        self.editbox = urwid.AttrMap(SelectableEdit(edit_text=self.source, allow_tab=True, multiline=True), 'regularText')
+        lineBorder = urwid.LineBox(self.editbox, title=srcTitleText, title_attr='regularText', title_align='left')
+        srcWidget=urwid.AttrMap(lineBorder, 'regularLineBox', focus_map='cellFocus')
+        # srcWidget = urwid.AttrMap(urwid.LineBox(self.editbox), 'regularLineBox', focus_map='cellFocus')
+        # TODO implement cell output later: need to hide html/img/etc types
+        # Add the cell outputs to pile
+
+        outwidgets = handleCodeOutput(cell["outputs"]) if "outputs" in cell.keys() else []
+
+        super().__init__([srcWidget, *outwidgets])
+    def selectable(self):
+        return any(map(lambda x: x[0].selectable(), self.contents))
+
+class CellV1(urwid.WidgetWrap):
     """
     Cells display these things in a vertical list (a pile)
         - A editable text box for the source

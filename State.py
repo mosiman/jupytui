@@ -1,11 +1,15 @@
 import urwid
+
+# get rid of later
 import logging
+import nbformat
 
 from JupytuiWidgets import SelectableEdit
 
-def commandParse(command):
+def commandParse(command, cmdbox):
     """
     Parses the text in cmdbox. Returns nothing if all is good, returns an error message otherwise.
+    As input, takes the command text and a reference to the commandbox.
     """
     cmdsplit = command.split(' ')
     fn = cmdsplit[0]
@@ -18,6 +22,7 @@ def commandParse(command):
     if fn == 'o':
         if arg:
             logging.debug(f'command: opening file {arg}')
+            urwid.emit_signal(cmdbox, 'cmdOpen', arg)
         else:
             return 'no filename specified for opening'
     return 'command not recognized'
@@ -36,13 +41,21 @@ class EditState(StateBase):
         self.context.cmdbox.edit_text = "(EDIT)"
         # If focus happens to be on a button, we need to force the focus to be on the source.
         # TODO this kinda smells tbh, should be accessible more directly from StatefulFrame
-        self.context.listbox.focus._w.focus_position = 0
+        # logging.debug(f'testtest {self.context.listbox.focus._w}')
+        # logging.debug(f'focus pos: {self.context.listbox.focus._w.focus_position}')
+        # self.context.listbox.focus._w.focus_position = 0
     def keypress(self, size, key):
         logging.debug(f'keypress caught by EditState: {key}')
         if key in ['esc']:
             # Switch to Nav state
             self.context._state = NavState(self.context)
             return
+        if key in ['f4']:
+            logging.debug(f'focuspath: {self.context.get_focus_widgets()}')
+        if key in ['f7']:
+            logging.debug(f'edit selectable? {self.context.listbox.body[0].editbox.selectable()}')
+        if key in ['f8']:
+            logging.debug(f'Cell focus: {self.context.listbox.body[0].focus}')
         self.context.superkeypress(size, key)
 
 class CmdState(StateBase):
@@ -57,12 +70,24 @@ class CmdState(StateBase):
         logging.debug(f'key press caught by CmdState: {key}')
         if key in ['enter']:
             logging.debug(f'cmd is {self.context.cmdbox.get_edit_text()}')
-            cmdResult = commandParse(self.context.cmdbox.get_edit_text())
+            cmdResult = commandParse(self.context.cmdbox.get_edit_text(), self.context.cmdbox)
+
+            if self.context.cmdbox.get_edit_text() == 'foobar':
+                logging.debug('sup')
+                self.context.listbox.body.restore_cells()
+
             if not cmdResult:
                 self.context.focus_part = 'body'
                 self.context._state = NavState(self.context)
             else:
                 if cmdResult == 'no command':
+                    # self.context.listbox.body.cells.pop(0)
+                    
+                    # nbk = nbformat.read('census.ipynb', nbformat.NO_CONVERT)
+                    # self.context.listbox.body.change_notebook(nbk)
+
+                    self.context.listbox.body.delete_all_cells()
+
                     self.context.focus_part = 'body'
                     self.context._state = NavState(self.context)
                 else:
@@ -78,6 +103,7 @@ class NavState(StateBase):
         SelectableEdit._selectable = False
         self.context.cmdbox.set_caption('')
         self.context.cmdbox.edit_text = "(NAV)"
+        self.context.focus_part = 'body'
     def keypress(self, size, key):
         logging.debug(f'key press caught by NavState: {key}')
         if key in ['j', 'k', 'g', 'G']:
