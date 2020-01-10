@@ -3,7 +3,7 @@ import logging
 
 from JupytuiWidgets import SelectableEdit
 
-def commandParse(command):
+def commandParse(command, cmdbox):
     """
     Parses the text in cmdbox. Returns nothing if all is good, returns an error message otherwise.
     """
@@ -18,6 +18,8 @@ def commandParse(command):
     if fn == 'o':
         if arg:
             logging.debug(f'command: opening file {arg}')
+            urwid.emit_signal(cmdbox, 'cmdOpen', arg)
+            return
         else:
             return 'no filename specified for opening'
     return 'command not recognized'
@@ -36,14 +38,16 @@ class EditState(StateBase):
         self.context.cmdbox.edit_text = "(EDIT)"
         # If focus happens to be on a button, we need to force the focus to be on the source.
         # TODO this kinda smells tbh, should be accessible more directly from StatefulFrame
-        self.context.listbox.focus._w.focus_position = 0
+        self.context.listbox.focus.focus_position = 0
     def keypress(self, size, key):
         logging.debug(f'keypress caught by EditState: {key}')
         if key in ['esc']:
             # Switch to Nav state
             self.context._state = NavState(self.context)
             return
-        self.context.superkeypress(size, key)
+        keyResult = self.context.superkeypress(size, key)
+        if keyResult:
+            return keyResult
 
 class CmdState(StateBase):
     def __init__(self, context):
@@ -57,7 +61,7 @@ class CmdState(StateBase):
         logging.debug(f'key press caught by CmdState: {key}')
         if key in ['enter']:
             logging.debug(f'cmd is {self.context.cmdbox.get_edit_text()}')
-            cmdResult = commandParse(self.context.cmdbox.get_edit_text())
+            cmdResult = commandParse(self.context.cmdbox.get_edit_text(), self.context.cmdbox)
             if not cmdResult:
                 self.context.focus_part = 'body'
                 self.context._state = NavState(self.context)

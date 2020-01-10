@@ -67,10 +67,9 @@ class NiceButton(urwid.Button):
 
 class SelectableEdit(urwid.Edit):
     """
-    Extension of urwid.Edit, allowing to be selectable or not selectable.
+    Extension of urwid.Edit. Allows us to target more precisely the editboxes that shouldn't be selectable.
     """
-    def selectable(self):
-        return self._selectable
+    pass
 
 
 class NotebookWalker(urwid.ListWalker):
@@ -139,7 +138,40 @@ class NotebookWalker(urwid.ListWalker):
             return range(len(self) - 1, -1, -1)
         return range(len(self))
 
-class Cell(urwid.WidgetWrap):
+class Cell(urwid.Pile):
+    def __init__(self, cell):
+        self.cell_type = cell.cell_type
+        self.metadata = cell.metadata
+        self.source = cell.source # source is not edited when editbox is, need explicit sync
+
+        if 'execution_count' in cell.keys():
+            srcTitleText = 'In [' + str(cell.execution_count) + ']'
+        else:
+            srcTitleText = ''
+
+        # TODO: this will change when I implement syntax highlighting
+        self.editbox = urwid.AttrMap(SelectableEdit(edit_text=self.source, allow_tab=True, multiline=True), 'regularText')
+        lineBorder = urwid.LineBox(self.editbox, title=srcTitleText, title_attr='regularText', title_align='left')
+        self.srcWidget=urwid.AttrMap(lineBorder, 'regularLineBox', focus_map='cellFocus')
+        self.outwidgets = handleCodeOutput(cell["outputs"]) if "outputs" in cell.keys() else []
+
+        super().__init__([self.srcWidget, *self.outwidgets])
+
+    def selectable(self):
+        myWidgetsSelectable = list(map(lambda x: x[0].selectable(), self.contents))
+        return any(myWidgetsSelectable)
+    def keypress(self, size, key):
+        keyResult = super().keypress(size, key)
+        if keyResult:
+            return keyResult
+    def get_focus(self):
+        if not self.contents:
+            return None
+        return self.contents[self.focus_position][0].base_widget
+    focus = property(get_focus,
+        doc="the base child widget in focus or None when Pile is empty")
+
+class CellV1(urwid.WidgetWrap):
     """
     Cells display these things in a vertical list (a pile)
         - A editable text box for the source

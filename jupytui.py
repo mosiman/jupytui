@@ -34,6 +34,12 @@ def openNotebook(fname):
 
     return frame
 
+def resetNotebook(fname):
+    newFrame = openNotebook(fname)
+    loop.widget = newFrame
+    # new cmdbox: gotta register again.
+    urwid.connect_signal(loop.widget.cmdbox, 'cmdOpen', resetNotebook)
+
 def undoOverlayMessage():
     loop.widget = loop.widget.bottom_w
 
@@ -50,6 +56,6 @@ loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True)
 
 # Handle commands from the commandbox
 urwid.register_signal(urwid.Edit, ['cmdOpen'])
-urwid.connect_signal(loop.widget.cmdbox, 'cmdOpen', openNotebook)
+urwid.connect_signal(loop.widget.cmdbox, 'cmdOpen', resetNotebook)
 
 loop.run()
