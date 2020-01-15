@@ -1,4 +1,5 @@
 import urwid
+import nbformat
 
 def handleCodeOutput(outputs):
     """
@@ -143,9 +144,14 @@ class Cell(urwid.Pile):
         self.cell_type = cell.cell_type
         self.metadata = cell.metadata
         self.source = cell.source # source is not edited when editbox is, need explicit sync
+        self.execution_count = None
+
+        if 'outputs' in cell.keys():
+            self.outputs = cell["outputs"]
 
         if 'execution_count' in cell.keys():
-            srcTitleText = 'In [' + str(cell.execution_count) + ']'
+            self.execution_count = cell.execution_count
+            srcTitleText = 'In [' + str(self.execution_count) + ']'
         else:
             srcTitleText = ''
 
@@ -153,7 +159,7 @@ class Cell(urwid.Pile):
         self.editbox = urwid.AttrMap(SelectableEdit(edit_text=self.source, allow_tab=True, multiline=True), 'regularText')
         lineBorder = urwid.LineBox(self.editbox, title=srcTitleText, title_attr='regularText', title_align='left')
         self.srcWidget=urwid.AttrMap(lineBorder, 'regularLineBox', focus_map='cellFocus')
-        self.outwidgets = handleCodeOutput(cell["outputs"]) if "outputs" in cell.keys() else []
+        self.outwidgets = handleCodeOutput(self.outputs) if "outputs" in cell.keys() else []
 
         super().__init__([self.srcWidget, *self.outwidgets])
 
@@ -170,6 +176,29 @@ class Cell(urwid.Pile):
         return self.contents[self.focus_position][0].base_widget
     focus = property(get_focus,
         doc="the base child widget in focus or None when Pile is empty")
+
+    def asNotebookNode(self):
+        """
+        Return this cell as a notebook node
+        """
+        src = self.editbox.base_widget.get_edit_text()
+        if self.cell_type == 'code':
+            nbkCell = nbformat.v4.new_code_cell(source = src)
+            # NOTE cell.outputs should be up to date
+            # i.e., update it when we get the appropriate IOPub msg via nbformat.v4.output_from_msg
+            nbkCell.execution_count = self.execution_count
+            nbkCell.outputs = self.outputs
+        elif self.cell_type == 'markdown':
+            nbkCell = nbformat.v4.new_markdown_cell(source = src)
+        elif self.cell_type == 'raw':
+            nbkCell = nbformat.v4.new_raw_cell(source = src)
+        else:
+            raise ValueError
+
+        return nbkCell
+
+
+
 
 class CellV1(urwid.WidgetWrap):
     """

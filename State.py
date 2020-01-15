@@ -15,6 +15,7 @@ def commandParse(command, cmdbox):
         return 'no command'
     if fn == 'w':
         logging.debug(f'command: writing to file {arg}')
+        urwid.emit_signal(cmdbox, 'cmdWrite')
     if fn == 'o':
         if arg:
             logging.debug(f'command: opening file {arg}')
