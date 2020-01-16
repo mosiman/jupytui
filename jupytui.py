@@ -65,7 +65,15 @@ def openNotebook(fname):
     fnamebox = urwid.AttrMap(urwid.Text(fname), 'fnamebox')
     footer = urwid.Pile([fnamebox, cmdbox])
 
-    frame = StatefulFrame(listcell, footer=footer)
+    try:
+        kernelName = nbk.metadata.kernelspec.name
+        kernelStatus = urwid.Text(kernelName)
+    except AttributeError:
+        kernelName = None
+
+    # the header and footer cut off bits from the body. How2fix tho
+    header = urwid.Columns([urwid.Text("Jupytui"),kernelStatus])
+    frame = StatefulFrame(listcell, footer=footer, header=header)
 
     return frame
 

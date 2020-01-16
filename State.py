@@ -117,6 +117,7 @@ class StatefulFrame(urwid.Frame):
         # initial state
         self.cmdbox = self.footer[1]
         self.listbox = self.body
+
         self._state = NavState(self)
 
     def keypress(self, size, key):
