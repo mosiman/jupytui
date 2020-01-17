@@ -16,6 +16,7 @@ def commandParse(command, cmdbox):
     if fn == 'w':
         logging.debug(f'command: writing to file {arg}')
         urwid.emit_signal(cmdbox, 'cmdWrite')
+        return
     if fn == 'o':
         if arg:
             logging.debug(f'command: opening file {arg}')
@@ -23,6 +24,9 @@ def commandParse(command, cmdbox):
             return
         else:
             return 'no filename specified for opening'
+    if fn == 'listKernels':
+        urwid.emit_signal(cmdbox, 'cmdListKernels')
+        return
     return 'command not recognized'
 
 class StateBase:
@@ -117,8 +121,9 @@ class StatefulFrame(urwid.Frame):
         # initial state
         self.cmdbox = self.footer[1]
         self.listbox = self.body
-
         self._state = NavState(self)
+
+        self.kernelStatus = self.header[1]
 
     def keypress(self, size, key):
         keyResult = self._state.keypress(size, key)

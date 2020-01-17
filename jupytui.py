@@ -8,8 +8,14 @@ import patch_issue_386
 urwid.ListBox = patch_issue_386.ListBox
 
 import nbformat
-from JupytuiWidgets import Cell, NotebookWalker, PopUpDialog, SelectableEdit
+# from JupytuiWidgets import Cell, NotebookWalker, PopUpDialog, SelectableEdit, \
+#                           PopUpListSelectText
+import JupytuiWidgets 
 from State import StatefulFrame
+
+import jupyter_client as jc
+kerSpecMan = jc.kernelspec.KernelSpecManager()
+
 
 import logging
 logging.basicConfig(filename='loggy.log', filemode='a', format='%(name)s - %(levelname)s - %(message)s', level=logging.DEBUG)
@@ -55,10 +61,32 @@ def saveNotebook():
     nbformat.write(newNbk, 'censusNEW.ipynb')
 
 
+def listKernels():
+    kspecs = kerSpecMan.find_kernel_specs()
+    kernelNames = kspecs.keys()
+
+    pop_up = JupytuiWidgets.PopUpListSelectText("Select kernel: ",[urwid.Text(k) for k in kernelNames])
+
+    overlay = urwid.Overlay(pop_up, loop.widget, align='center', width=('relative', 80), valign='middle', height=('relative', 80))
+
+    loop.widget = overlay
+
+    urwid.connect_signal(pop_up, 'close',
+        lambda button: selectKernel(button))
+
+def selectKernel(widg):
+    """
+    changes the kernel. `widg` is a text widget with the name of the kernel
+    """
+    undoOverlayMessage()
+
+    kernelName = widg.text
+    loop.widget.kernelStatus.set_text(f"{kernelName} (connecting..)")
+    # do an async thing here with jupyter_client
 
 def openNotebook(fname):
     nbk = nbformat.read(fname, nbformat.NO_CONVERT)
-    nbkWalker = NotebookWalker(nbk)
+    nbkWalker = JupytuiWidgets.NotebookWalker(nbk)
     listcell = urwid.ListBox(nbkWalker)
 
     cmdbox = urwid.Edit(edit_text="(NAV)")
@@ -117,8 +145,9 @@ loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True)
 ####### SIGNALS #########
 
 # Handle commands from the commandbox
-urwid.register_signal(urwid.Edit, ['cmdOpen', 'cmdWrite'])
+urwid.register_signal(urwid.Edit, ['cmdOpen', 'cmdWrite', 'cmdListKernels'])
 urwid.connect_signal(loop.widget.cmdbox, 'cmdOpen', resetNotebook)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdWrite', saveNotebook)
+urwid.connect_signal(loop.widget.cmdbox, 'cmdListKernels', listKernels)
 
 loop.run()
