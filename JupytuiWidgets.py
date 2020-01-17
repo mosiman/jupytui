@@ -1,6 +1,61 @@
 import urwid
+import heapq
+import time
+import select
 import jupyter_client
 import nbformat
+import logging
+
+class JCEventLoop(urwid.SelectEventLoop):
+    def __init__(self, kerClient = None):
+        self.kerClient = kerClient
+        super().__init__()
+
+    def _check_msg(self):
+        """
+        Checks messages on iopub, shell, stdin channels
+        """
+        if self.kerClient:
+            if self.kerClient.iopub_channel.msg_ready:
+                logging.debug(f"iopub channel has message ready")
+            if self.kerClient.shell_channel.msg_ready:
+                logging.debug(f"shell channel has message ready")
+            if self.kerClient.stdin_channel.msg_ready:
+                logging.debug(f"stdin channel has message ready")
+
+    def _loop(self):
+        """
+        A single iteration of the event loop. Modified from SelectEventLoop to check for kernel messages. Inspiration from github.com/wackywendell and their `ipyurwid repository.
+        """
+        fds = list(self._watch_files.keys())
+        if self._alarms or self._did_something:
+            if self._alarms:
+                tm = self._alarms[0][0]
+                timeout = max(0, tm - time.time())
+            self._check_msg()
+            if self._did_something and (not self._alarms or
+                    (self._alarms and timeout > 0)):
+                timeout = 0
+                tm = 'idle'
+            ready, w, err = select.select(fds, [], fds, timeout)
+        else:
+            tm = None
+            ready, w, err = select.select(fds, [], fds)
+
+        if not ready:
+            if tm == 'idle':
+                self._entering_idle()
+                self._did_something = False
+            elif tm is not None:
+                # must have been a timeout
+                tm, tie_break, alarm_callback = heapq.heappop(self._alarms)
+                alarm_callback()
+                self._did_something = True
+
+        for fd in ready:
+            self._watch_files[fd]()
+            self._did_something = True
+
 
 def handleCodeOutput(outputs):
     """
@@ -77,21 +132,6 @@ class SelectableEdit(urwid.Edit):
 class NotebookWalker(urwid.ListWalker):
     def __init__(self, nbk):
         self.nbk = nbk
-        # Originally, I wanted to have walker generate Cell objects on the fly 
-        # (i.e. whenever __getitem__ is called), but turns out there is a bit of a scope
-        # issue. 
-        # If instead of __getitem__ returning `self.cells[pos]` (list of Cells)
-        # it returned `Cell(self.nbk.cells[pos])` the listbox would not update the view.
-        # Now, I need to maintain a separate list of cell objects that should be synced
-        # back to the notebook object.
-        # In terms of syncing:
-        #   - When the edit box's content has changed, there is no need to sync with 
-        #     the notebook until we 'save'. 
-        #   - If the cell is executed, we should save the results into notebook, and then
-        #     remake the Cell object with the appropriate things.
-        # TODO: Have NotebookWalker subclass SimpleListWalker (or SimpleFocusListWalker)
-        #       It will be more easily maintainable, and easier to read.
-        #       Should just be the subclass, plus a notebook object and some sync functions.
         self.cells = list(map(Cell, self.nbk.cells))
         self.focus = 0
 
@@ -228,9 +268,6 @@ class CellV1(urwid.WidgetWrap):
         self.editbox = urwid.AttrMap(SelectableEdit(edit_text=self.source, allow_tab=True, multiline=True), 'regularText')
         lineBorder = urwid.LineBox(self.editbox, title=srcTitleText, title_attr='regularText', title_align='left')
         srcWidget=urwid.AttrMap(lineBorder, 'regularLineBox', focus_map='cellFocus')
-        # srcWidget = urwid.AttrMap(urwid.LineBox(self.editbox), 'regularLineBox', focus_map='cellFocus')
-        # TODO implement cell output later: need to hide html/img/etc types
-        # Add the cell outputs to pile
 
         outwidgets = handleCodeOutput(cell["outputs"]) if "outputs" in cell.keys() else []
 

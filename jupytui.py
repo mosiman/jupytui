@@ -32,25 +32,7 @@ palette = [
 def currentNotebook(nbkWalker):
     newNbk = nbformat.v4.new_notebook()
     newNbk.metadata = nbkWalker.nbk.metadata
-    # nbk = nbkWalker.nbk
 
-    # cells = nbk.cells
-
-    # for cell in cells:
-    #     src = cell.source
-    #     if cell.cell_type == 'code':
-    #         nbkCell = nbformat.v4.new_code_cell(source = src)
-    #         # NOTE cell.outputs should be up to date
-    #         # i.e., update it when we get the appropriate IOPub msg via nbformat.v4.output_from_msg
-    #         nbkCell.execution_count = cell.execution_count
-    #         nbkCell.outputs = cell.outputs
-    #     elif cell.cell_type == 'markdown':
-    #         nbkCell = nbformat.v4.new_markdown_cell(source = src)
-    #     elif cell.cell_type == 'raw':
-    #         nbkCell = nbformat.v4.new_raw_cell(source = src)
-    #     else:
-    #         raise ValueError
-    #     newNbk.cells.append(nbkCell)
     for cell in nbkWalker.cells:
         newNbk.cells.append(cell.asNotebookNode())
     return newNbk
@@ -99,7 +81,6 @@ def openNotebook(fname):
     except AttributeError:
         kernelName = None
 
-    # the header and footer cut off bits from the body. How2fix tho
     header = urwid.Columns([urwid.Text("Jupytui"),kernelStatus])
     frame = StatefulFrame(listcell, footer=footer, header=header)
 
@@ -110,6 +91,7 @@ def resetNotebook(fname):
     urwid.disconnect_signal(loop.widget.cmdbox, 'cmdOpen', resetNotebook)
     loop.widget = newFrame
     # new cmdbox: gotta register again.
+    # TODO: replace just the body to avoid reregistering widgets.
     urwid.connect_signal(loop.widget.cmdbox, 'cmdOpen', resetNotebook)
 
 def undoOverlayMessage():
@@ -123,24 +105,20 @@ def debug_input(key):
 fname = 'census.ipynb'
 frame = openNotebook(fname)
 
-# empty notebook
-# nbk = nbformat.v4.new_notebook()
-# nbkWalker = NotebookWalker(nbk)
-# listcell = urwid.ListBox(nbkWalker)
-# 
-# cmdbox = urwid.Edit(edit_text="(NAV)")
-# fnamebox = urwid.AttrMap(urwid.Text("NEW"), 'fnamebox')
-# footer = urwid.Pile([fnamebox, cmdbox])
-# 
-# frame = StatefulFrame(listcell, footer=footer)
-
 if frame.listbox.body.nbk.nbformat != 4:
     upgradeOld = input("This is an old notebook version. Upgrade to 4? [y/n]: ")
     if upgradeOld.lower() != 'y':
         sys.exit()
 
+# testing purposes:
+kerMan = jc.KernelManager(kernel_name='python3')
+kerMan.start_kernel()
+kerClient = kerMan.client()
+kerClient.start_channels()
 
-loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True)
+jc_eventloop = JupytuiWidgets.JCEventLoop(kerClient)
+
+loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True, event_loop=jc_eventloop)
 
 ####### SIGNALS #########
 
