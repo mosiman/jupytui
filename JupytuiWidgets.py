@@ -6,7 +6,11 @@ import jupyter_client
 import nbformat
 import logging
 
-class JCEventLoop(urwid.SelectEventLoop):
+class JCEventLoop(urwid.SelectEventLoop, metaclass=urwid.MetaSignals):
+    """
+    A `urwid.SelectEventLoop` with loop modified to call signals if a message is available on one of the kernel's channels.
+    """
+    signals = ["iopubMsg", "shellMsg", "stdinMsg"]
     def __init__(self, kerClient = None):
         self.kerClient = kerClient
         super().__init__()
@@ -16,11 +20,13 @@ class JCEventLoop(urwid.SelectEventLoop):
         Checks messages on iopub, shell, stdin channels
         """
         if self.kerClient:
-            if self.kerClient.iopub_channel.msg_ready:
+            if self.kerClient.iopub_channel.msg_ready():
                 logging.debug(f"iopub channel has message ready")
-            if self.kerClient.shell_channel.msg_ready:
+                msg = self.kerClient.get_iopub_msg(0)
+                urwid.emit_signal(self, "iopubMsg", msg)
+            if self.kerClient.shell_channel.msg_ready():
                 logging.debug(f"shell channel has message ready")
-            if self.kerClient.stdin_channel.msg_ready:
+            if self.kerClient.stdin_channel.msg_ready():
                 logging.debug(f"stdin channel has message ready")
 
     def _loop(self):

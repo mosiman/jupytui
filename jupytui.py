@@ -100,6 +100,9 @@ def undoOverlayMessage():
 def debug_input(key):
     logging.debug(f"unhandled key: {key}")
 
+def recvIopubMsg(msg):
+    logging.debug(f"recvIopubMsg: {msg}")
+
 
 # read a notebook
 fname = 'census.ipynb'
@@ -127,5 +130,7 @@ urwid.register_signal(urwid.Edit, ['cmdOpen', 'cmdWrite', 'cmdListKernels'])
 urwid.connect_signal(loop.widget.cmdbox, 'cmdOpen', resetNotebook)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdWrite', saveNotebook)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdListKernels', listKernels)
+
+urwid.connect_signal(loop.event_loop, 'iopubMsg', recvIopubMsg)
 
 loop.run()
