@@ -5,15 +5,24 @@ import select
 import jupyter_client
 import nbformat
 import logging
+import zmq
 
 class JCEventLoop(urwid.SelectEventLoop, metaclass=urwid.MetaSignals):
     """
     A `urwid.SelectEventLoop` with loop modified to call signals if a message is available on one of the kernel's channels.
+    Also, basically the same as `https://gist.github.com/sphaero/8225315`
+        TODO: proper attribution
     """
     signals = ["iopubMsg", "shellMsg", "stdinMsg"]
     def __init__(self, kerClient = None):
         self.kerClient = kerClient
+        self.zmqPoller = zmq.Poller()
         super().__init__()
+
+    def watch_channel(self, soc: zmq.sugar.socket.Socket, callback):
+        self._watch_files[soc] = callback
+        self.zmqPoller.register(soc, zmq.POLLIN)
+        return soc
 
     def _check_msg(self):
         """
@@ -38,27 +47,29 @@ class JCEventLoop(urwid.SelectEventLoop, metaclass=urwid.MetaSignals):
             if self._alarms:
                 tm = self._alarms[0][0]
                 timeout = max(0, tm - time.time())
-            self._check_msg()
             if self._did_something and (not self._alarms or
                     (self._alarms and timeout > 0)):
                 timeout = 0
                 tm = 'idle'
-            ready, w, err = select.select(fds, [], fds, timeout)
+            items = dict(self.zmqPoller.poll(timeout))
+            #ready, w, err = select.select(fds, [], fds, timeout)
         else:
             tm = None
-            ready, w, err = select.select(fds, [], fds)
+            items = dict(self.zmqPoller.poll())
+            #ready, w, err = select.select(fds, [], fds)
 
-        if not ready:
+        if not items:
             if tm == 'idle':
                 self._entering_idle()
                 self._did_something = False
             elif tm is not None:
                 # must have been a timeout
-                tm, tie_break, alarm_callback = heapq.heappop(self._alarms)
+                # tm, tie_break, alarm_callback = heapq.heappop(self._alarms)
+                tm, alarm_callback = self._alarms.pop(0)
                 alarm_callback()
                 self._did_something = True
 
-        for fd in ready:
+        for fd, ev in items.items():
             self._watch_files[fd]()
             self._did_something = True
 

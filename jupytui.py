@@ -120,6 +120,7 @@ kerClient = kerMan.client()
 kerClient.start_channels()
 
 jc_eventloop = JupytuiWidgets.JCEventLoop(kerClient)
+jc_eventloop.watch_channel(kerClient.iopub_channel.socket, jc_eventloop._check_msg)
 
 loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True, event_loop=jc_eventloop)
 
