@@ -6,6 +6,8 @@ import jupyter_client
 import nbformat
 import logging
 import zmq
+import zmq_loop.urwid_zmq_event_loop
+
 
 class JCEventLoop(urwid.SelectEventLoop, metaclass=urwid.MetaSignals):
     """

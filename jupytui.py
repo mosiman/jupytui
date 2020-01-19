@@ -1,6 +1,7 @@
 import urwid
 import sys
 import logging
+import zmq_loop.urwid_zmq_event_loop
 
 # Monkeypatch: issue 386
 
@@ -103,6 +104,14 @@ def debug_input(key):
 def recvIopubMsg(msg):
     logging.debug(f"recvIopubMsg: {msg}")
 
+def executeCell(cell: JupytuiWidgets.Cell):
+    nbkNode = cell.asNotebookNode()
+    kerClient.execute(nbkNode.source)
+
+def read_messages():
+    msg = kerClient.get_iopub_msg()
+    logging.debug(f"iopub: {msg}")
+
 
 # read a notebook
 fname = 'census.ipynb'
@@ -119,19 +128,21 @@ kerMan.start_kernel()
 kerClient = kerMan.client()
 kerClient.start_channels()
 
-jc_eventloop = JupytuiWidgets.JCEventLoop(kerClient)
-jc_eventloop.watch_channel(kerClient.iopub_channel.socket, jc_eventloop._check_msg)
+jc_eventloop = zmq_loop.urwid_zmq_event_loop.ZmqEventLoop()
+#jc_eventloop = JupytuiWidgets.JCEventLoop(kerClient)
+jc_eventloop.watch_file(kerClient.iopub_channel.socket, read_messages)
 
 loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True, event_loop=jc_eventloop)
 
 ####### SIGNALS #########
 
 # Handle commands from the commandbox
-urwid.register_signal(urwid.Edit, ['cmdOpen', 'cmdWrite', 'cmdListKernels'])
+urwid.register_signal(urwid.Edit, ['cmdOpen', 'cmdWrite', 'cmdListKernels', 'cmdExecuteCurrentCell'])
 urwid.connect_signal(loop.widget.cmdbox, 'cmdOpen', resetNotebook)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdWrite', saveNotebook)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdListKernels', listKernels)
+urwid.connect_signal(loop.widget.cmdbox, 'cmdExecuteCurrentCell', executeCell)
 
-urwid.connect_signal(loop.event_loop, 'iopubMsg', recvIopubMsg)
+# urwid.connect_signal(loop.event_loop, 'iopubMsg', recvIopubMsg)
 
 loop.run()

@@ -3,7 +3,7 @@ import logging
 
 from JupytuiWidgets import SelectableEdit
 
-def commandParse(command, cmdbox):
+def commandParse(command, cmdbox, ctx):
     """
     Parses the text in cmdbox. Returns nothing if all is good, returns an error message otherwise.
     """
@@ -26,6 +26,9 @@ def commandParse(command, cmdbox):
             return 'no filename specified for opening'
     if fn == 'listKernels':
         urwid.emit_signal(cmdbox, 'cmdListKernels')
+        return
+    if fn == 'executeCell':
+        urwid.emit_signal(cmdbox, 'cmdExecuteCurrentCell', ctx.listbox.focus)
         return
     return 'command not recognized'
 
@@ -66,7 +69,7 @@ class CmdState(StateBase):
         logging.debug(f'key press caught by CmdState: {key}')
         if key in ['enter']:
             logging.debug(f'cmd is {self.context.cmdbox.get_edit_text()}')
-            cmdResult = commandParse(self.context.cmdbox.get_edit_text(), self.context.cmdbox)
+            cmdResult = commandParse(self.context.cmdbox.get_edit_text(), self.context.cmdbox, self.context)
             if not cmdResult:
                 self.context.focus_part = 'body'
                 self.context._state = NavState(self.context)
