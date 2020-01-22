@@ -217,11 +217,20 @@ class Cell(urwid.Pile):
 
         # TODO: this will change when I implement syntax highlighting
         self.editbox = urwid.AttrMap(SelectableEdit(edit_text=self.source, allow_tab=True, multiline=True), 'regularText')
-        lineBorder = urwid.LineBox(self.editbox, title=srcTitleText, title_attr='regularText', title_align='left')
-        self.srcWidget=urwid.AttrMap(lineBorder, 'regularLineBox', focus_map='cellFocus')
+        self.lineBorder = urwid.LineBox(self.editbox, title=srcTitleText, title_attr='regularText', title_align='left')
+        self.srcWidget=urwid.AttrMap(self.lineBorder, 'regularLineBox', focus_map='cellFocus')
         self.outwidgets = handleCodeOutput(self.outputs) if "outputs" in cell.keys() else []
 
         super().__init__([self.srcWidget, *self.outwidgets])
+
+    def appendOutput(self,out):
+        self.outputs.append(out)
+        self.contents.append((handleCodeOutput([out])[0], self.options()))
+        
+
+    def clearOutputs(self):
+        self.outputs.clear()
+        del self.contents[1:]
 
     def selectable(self):
         myWidgetsSelectable = list(map(lambda x: x[0].selectable(), self.contents))

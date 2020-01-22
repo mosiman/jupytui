@@ -3,6 +3,10 @@ import sys
 import logging
 import zmq_loop.urwid_zmq_event_loop
 
+import pprint
+
+pprint.PrettyPrinter(indent=4)
+
 # Monkeypatch: issue 386
 
 import patch_issue_386
@@ -101,17 +105,56 @@ def undoOverlayMessage():
 def debug_input(key):
     logging.debug(f"unhandled key: {key}")
 
+    if key == 'f1':
+        logging.debug(pprint.pformat(loop.widget.listbox.body[3].lineBorder.title_widget))
+
 def recvIopubMsg(msg):
     logging.debug(f"recvIopubMsg: {msg}")
+    if "parent_header" in msg and "msg_id" in msg["parent_header"]:
+        parent = msg["parent_header"]["msg_id"]
+        if parent in requestManager:
+            requestManager[parent].handleChildMessage(msg)
 
 def executeCell(cell: JupytuiWidgets.Cell):
-    nbkNode = cell.asNotebookNode()
-    kerClient.execute(nbkNode.source)
+    # nbkNode = cell.asNotebookNode()
+    # msgid = kerClient.execute(nbkNode.source)
+    # logging.debug(f"executed! id: {msgid}")
+    r = ExecuteRequest(kerClient, cell)
+    requestManager[r.msg_id] = r
+
 
 def read_messages():
     msg = kerClient.get_iopub_msg()
     logging.debug(f"iopub: {msg}")
 
+class ExecuteRequest:
+    def __init__(self, ctx, cell):
+        self.cell = cell
+        self.msg_id = ctx.execute(self.cell.asNotebookNode().source)
+        self.cell.clearOutputs()
+
+    def handleChildMessage(self, msg):
+        logging.debug(f"handling message!")
+
+        # the execution number is in the execute_input reply
+        execnum = None
+        if msg["msg_type"] == 'execute_input':
+            execnum = msg['content']['execution_count']
+            self.cell.lineBorder.set_title(f"In [{execnum}]")
+
+        try:
+            newOut = nbformat.v4.output_from_msg(msg)
+            self.cell.appendOutput(newOut)
+        except ValueError:
+            # if msg_type is not acceptable (e.g. status, execute_input, etc)
+            pass
+
+
+# TODO build a proper way to manage requests!!!
+# dict could have arbitrary amount of keys, not good...
+# lots of deletion / additions, hash space is bad?
+# look into weakref dicts? or custom made object, maybe..
+requestManager = {}
 
 # read a notebook
 fname = 'census.ipynb'
@@ -128,9 +171,10 @@ kerMan.start_kernel()
 kerClient = kerMan.client()
 kerClient.start_channels()
 
-jc_eventloop = zmq_loop.urwid_zmq_event_loop.ZmqEventLoop()
+jc_eventloop = zmq_loop.urwid_zmq_event_loop.ZmqEventLoop(ctx=kerClient)
+jc_eventloop.register_channels()
 #jc_eventloop = JupytuiWidgets.JCEventLoop(kerClient)
-jc_eventloop.watch_file(kerClient.iopub_channel.socket, read_messages)
+#jc_eventloop.watch_file(kerClient.iopub_channel.socket, read_messages)
 
 loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True, event_loop=jc_eventloop)
 
@@ -143,6 +187,7 @@ urwid.connect_signal(loop.widget.cmdbox, 'cmdWrite', saveNotebook)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdListKernels', listKernels)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdExecuteCurrentCell', executeCell)
 
-# urwid.connect_signal(loop.event_loop, 'iopubMsg', recvIopubMsg)
+# Handle messages from the Kernel
+urwid.connect_signal(loop.event_loop, 'iopubMsg', recvIopubMsg)
 
 loop.run()
