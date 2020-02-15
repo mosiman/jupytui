@@ -9,6 +9,7 @@ verify_ssl = true
 urwid = {path = "./urwid"}
 nbformat = "*"
 jupyter-client = "*"
+nbclient = "*"
 
 [requires]
 python_version = "3.8"

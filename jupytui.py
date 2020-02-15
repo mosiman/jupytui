@@ -115,6 +115,17 @@ def recvIopubMsg(msg):
         if parent in requestManager:
             requestManager[parent].handleChildMessage(msg)
 
+def recvShellMsg(msg):
+    logging.debug(f"recvShellMsg: {msg}")
+    if "parent_header" in msg and "msg_id" in msg["parent_header"]:
+        parent = msg["parent_header"]["msg_id"]
+        if parent in requestManager:
+            requestManager[parent].handleChildMessage(msg)
+
+def quit():
+    # TODO: gracefully stop jupyter processes, or wrap in some session manager.
+    raise urwid.ExitMainLoop()
+
 def executeCell(cell: JupytuiWidgets.Cell):
     # nbkNode = cell.asNotebookNode()
     # msgid = kerClient.execute(nbkNode.source)
@@ -138,10 +149,9 @@ class ExecuteRequest:
 
         # the execution number is in the execute_input reply
         execnum = None
-        if msg["msg_type"] == 'execute_input':
+        if msg["msg_type"] == 'execute_reply':
             execnum = msg['content']['execution_count']
             self.cell.lineBorder.set_title(f"In [{execnum}]")
-
         try:
             newOut = nbformat.v4.output_from_msg(msg)
             self.cell.appendOutput(newOut)
@@ -173,15 +183,14 @@ kerClient.start_channels()
 
 jc_eventloop = zmq_loop.urwid_zmq_event_loop.ZmqEventLoop(ctx=kerClient)
 jc_eventloop.register_channels()
-#jc_eventloop = JupytuiWidgets.JCEventLoop(kerClient)
-#jc_eventloop.watch_file(kerClient.iopub_channel.socket, read_messages)
 
 loop = urwid.MainLoop(frame, palette, unhandled_input=debug_input, pop_ups=True, event_loop=jc_eventloop)
 
 ####### SIGNALS #########
 
 # Handle commands from the commandbox
-urwid.register_signal(urwid.Edit, ['cmdOpen', 'cmdWrite', 'cmdListKernels', 'cmdExecuteCurrentCell'])
+urwid.register_signal(urwid.Edit, ['cmdOpen', 'cmdWrite', 'cmdListKernels', 'cmdExecuteCurrentCell', 'cmdQuit'])
+urwid.connect_signal(loop.widget.cmdbox, 'cmdQuit', quit)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdOpen', resetNotebook)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdWrite', saveNotebook)
 urwid.connect_signal(loop.widget.cmdbox, 'cmdListKernels', listKernels)
@@ -189,5 +198,6 @@ urwid.connect_signal(loop.widget.cmdbox, 'cmdExecuteCurrentCell', executeCell)
 
 # Handle messages from the Kernel
 urwid.connect_signal(loop.event_loop, 'iopubMsg', recvIopubMsg)
+urwid.connect_signal(loop.event_loop, 'shellMsg', recvShellMsg)
 
 loop.run()

@@ -7,3 +7,4 @@ kernelclient/
 teststuff/
 *.pyc
 __pycache__/
+nbclient/

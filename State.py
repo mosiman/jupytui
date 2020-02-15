@@ -17,6 +17,8 @@ def commandParse(command, cmdbox, ctx):
         logging.debug(f'command: writing to file {arg}')
         urwid.emit_signal(cmdbox, 'cmdWrite')
         return
+    if fn == 'q':
+        urwid.emit_signal(cmdbox, 'cmdQuit')
     if fn == 'o':
         if arg:
             logging.debug(f'command: opening file {arg}')
@@ -115,6 +117,10 @@ class NavState(StateBase):
             return
         if key in [':']:
             self.context._state = CmdState(self.context)
+        if key in ['enter']:
+            # execute the current cell
+            urwid.emit_signal(self.context.cmdbox, 'cmdExecuteCurrentCell', self.context.listbox.focus)
+
         return key
 
 class StatefulFrame(urwid.Frame):
