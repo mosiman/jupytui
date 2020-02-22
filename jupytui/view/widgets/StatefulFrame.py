@@ -1,7 +1,11 @@
 import urwid
-import logging
+from jupytui.view.SelectableEdit import SelectableEdit
 
-from JupytuiWidgets import SelectableEdit
+class StateBase:
+    def __init__(self, context):
+        self.context = context
+    def keypress(self, size, key):
+        pass
 
 def commandParse(command, cmdbox, ctx):
     """
@@ -14,14 +18,12 @@ def commandParse(command, cmdbox, ctx):
     if fn == '':
         return 'no command'
     if fn == 'w':
-        logging.debug(f'command: writing to file {arg}')
         urwid.emit_signal(cmdbox, 'cmdWrite')
         return
     if fn == 'q':
         urwid.emit_signal(cmdbox, 'cmdQuit')
     if fn == 'o':
         if arg:
-            logging.debug(f'command: opening file {arg}')
             urwid.emit_signal(cmdbox, 'cmdOpen', arg)
             return
         else:
@@ -34,11 +36,25 @@ def commandParse(command, cmdbox, ctx):
         return
     return 'command not recognized'
 
-class StateBase:
-    def __init__(self, context):
-        self.context = context
+class StatefulFrame(urwid.Frame):
+    def __init__(self, body, header=None, footer=None, focus_part='body'):
+        super().__init__(body, header=header, footer=footer, focus_part=focus_part)
+        # initial state
+        self.cmdbox = self.footer[1]
+        self.listbox = self.body
+        self._state = NavState(self)
+
+        self.kernelStatus = self.header[1]
+
     def keypress(self, size, key):
-        pass
+        keyResult = self._state.keypress(size, key)
+        if keyResult:
+            return keyResult
+
+    def superkeypress(self, size, key):
+        keyResult = super().keypress(size, key)
+        if keyResult:
+            return keyResult
 
 class EditState(StateBase):
     def __init__(self, context):
@@ -50,7 +66,6 @@ class EditState(StateBase):
         # TODO this kinda smells tbh, should be accessible more directly from StatefulFrame
         self.context.listbox.focus.focus_position = 0
     def keypress(self, size, key):
-        logging.debug(f'keypress caught by EditState: {key}')
         if key in ['esc']:
             # Switch to Nav state
             self.context._state = NavState(self.context)
@@ -68,9 +83,7 @@ class CmdState(StateBase):
 
     def keypress(self, size, key):
         # Avoid all unless it's 'enter'
-        logging.debug(f'key press caught by CmdState: {key}')
         if key in ['enter']:
-            logging.debug(f'cmd is {self.context.cmdbox.get_edit_text()}')
             cmdResult = commandParse(self.context.cmdbox.get_edit_text(), self.context.cmdbox, self.context)
             if not cmdResult:
                 self.context.focus_part = 'body'
@@ -93,7 +106,6 @@ class NavState(StateBase):
         self.context.cmdbox.set_caption('')
         self.context.cmdbox.edit_text = "(NAV)"
     def keypress(self, size, key):
-        logging.debug(f'key press caught by NavState: {key}')
         if key in ['j', 'k', 'g', 'G']:
             currentFocusPos = self.context.listbox.focus_position
             if key == 'j':
@@ -122,24 +134,3 @@ class NavState(StateBase):
             urwid.emit_signal(self.context.cmdbox, 'cmdExecuteCurrentCell', self.context.listbox.focus)
 
         return key
-
-class StatefulFrame(urwid.Frame):
-
-    def __init__(self, body, header=None, footer=None, focus_part='body'):
-        super().__init__(body, header=header, footer=footer, focus_part=focus_part)
-        # initial state
-        self.cmdbox = self.footer[1]
-        self.listbox = self.body
-        self._state = NavState(self)
-
-        self.kernelStatus = self.header[1]
-
-    def keypress(self, size, key):
-        keyResult = self._state.keypress(size, key)
-        if keyResult:
-            return keyResult
-
-    def superkeypress(self, size, key):
-        keyResult = super().keypress(size, key)
-        if keyResult:
-            return keyResult

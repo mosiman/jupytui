@@ -52,7 +52,7 @@ def listKernels():
     kspecs = kerSpecMan.find_kernel_specs()
     kernelNames = kspecs.keys()
 
-    pop_up = JupytuiWidgets.PopUpListSelectText("Select kernel: ",[urwid.Text(k) for k in kernelNames])
+    pop_up = JupytuiWidgets.PopUpListSelectText("Select kernel: ", [urwid.Text(k) for k in kernelNames])
 
     overlay = urwid.Overlay(pop_up, loop.widget, align='center', width=('relative', 80), valign='middle', height=('relative', 80))
 
@@ -86,7 +86,7 @@ def openNotebook(fname):
     except AttributeError:
         kernelName = None
 
-    header = urwid.Columns([urwid.Text("Jupytui"),kernelStatus])
+    header = urwid.Columns([urwid.Text("Jupytui"), kernelStatus])
     frame = StatefulFrame(listcell, footer=footer, header=header)
 
     return frame
